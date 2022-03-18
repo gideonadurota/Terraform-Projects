@@ -12,9 +12,9 @@ provider "aws" {
   profile = "terraform_profile"
 }
 
-# data "aws_availability_zones" "available" {
-#   state = "available"
-# }
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -38,7 +38,7 @@ module "app_security_group" {
   source  = "terraform-aws-modules/security-group/aws//modules/web"
   version = "3.17.0"
 
-  for_each = var.Project
+  for_each = var.project
 
   #name        = "web-server-sg-${var.project_name}-${var.environment}"
   name        = "web-server-sg-${each.key}-${each.value.environment}"
@@ -75,11 +75,11 @@ module "elb_http" {
   source  = "terraform-aws-modules/elb/aws"
   version = "2.4.0"
 
+  for_each = var.project
   # Comply with ELB name restrictions 
   # https://docs.aws.amazon.com/elasticloadbalancing/2012-06-01/APIReference/API_CreateLoadBalancer.html
   # name     = trimsuffix(substr(replace(join("-", ["lb", random_string.lb_id.result, var.project_name, var.environment]), "/[^a-zA-Z0-9-]/", ""), 0, 32), "-")
-  name     = trimsuffix(substr(replace(join("-", ["lb", random_string.lb_id.result, each.key, each.value.environment]), "/[^a-zA-Z0-9-]/", ""), 0, 32), "-")
- 
+  name = trimsuffix(substr(replace(join("-", ["lb", random_string.lb_id.result, each.key, each.value.environment]), "/[^a-zA-Z0-9-]/", ""), 0, 32), "-")
   internal = false
 
   # security_groups = [module.lb_security_group.this_security_group_id]
@@ -108,15 +108,15 @@ module "elb_http" {
   }
 }
 
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
+# data "aws_ami" "amazon_linux" {
+#   most_recent = true
+#   owners      = ["amazon"]
 
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-}
+#   filter {
+#     name   = "name"
+#     values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+#   }
+# }
 
 # resource "aws_instance" "app" {
 #   count = 2
@@ -151,7 +151,7 @@ module "ec2_instances" {
   instance_count = each.value.instances_per_subnet * length(module.vpc[each.key].private_subnets)
   instance_type = each.value.instance_type
   subnet_ids = module.vpc[each.key].private_subnets[*]
-  security_groups_id = [module.app_security_group[each.key].this_security_group_id]
+  security_group_ids = [module.app_security_group[each.key].this_security_group_id]
 
   project_name = each.key
   environment  = each.value.environment
